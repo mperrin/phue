@@ -1,24 +1,36 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+'''
+phue by Nathanaël Lécaudé - A Philips Hue Python library
+Contributions by Marshall Perrin
+https://github.com/studioimaginaire/phue
+Original protocol hacking by rsmck : http://rsmck.co.uk/hue
+
+Published under the GWTFPL - http://www.wtfpl.net
+
+"Hue Personal Wireless Lighting" is a trademark owned by Koninklijke Philips Electronics N.V., see www.meethue.com for more information.
+I am in no way affiliated with the Philips organization.
+
+'''
+
 import json
 import os
 import platform
 import sys
-if sys.version_info.major > 2:
+if sys.version_info[0] > 2:
+    PY3K = True
+else:
+    PY3K = False
+
+if PY3K:
     import http.client as httplib
 else:
     import httplib
 
 import logging
 logger = logging.getLogger('phue')
-#logging.basicConfig(level=logging.INFO)
-logging.basicConfig(level=logging.DEBUG)
-
-
-# phue by Nathanaël Lécaudé - A Philips Hue Python library
-# https://github.com/studioimaginaire/phue
-# Original protocol hacking by rsmck : http://rsmck.co.uk/hue
+logging.basicConfig(level=logging.INFO)
 
 if platform.system() == 'Windows':
     USER_HOME = 'USERPROFILE'
@@ -54,8 +66,10 @@ class Light(object):
         self._colortemp = None
         self._alert = None
         self.transitiontime=None # default
-        self._reset_bri_after_on = False # see notes in 'on' function below
-    
+        #self._reset_bri_after_on = False # see notes in 'on' function below
+        self._reset_bri_after_on = None
+
+
     def __repr__(self):
         # like default python repr function, but add object name
         return '<%s.%s object "%s" at %s>' % (
@@ -110,18 +124,18 @@ class Light(object):
         # see http://www.everyhue.com/vanilla/discussion/204/bug-with-brightness-when-requesting-ontrue-transitiontime5
 
         # if we're turning off, save whether this bug in the hardware has been invoked
-        if self._on == True and value ==False:
+        if self._on == True and value == False:
             self._reset_bri_after_on = self.transitiontime is not None
             if self._reset_bri_after_on: logger.warning('Turned off light with transitiontime specified, brightness will be reset on power on')
 
         self._set('on', value)
 
         # work around bug by resetting brightness after a power on
-        if self._on == False and value ==True:
+        if self._on == False and value == True:
             if self._reset_bri_after_on:
                 logger.warning('Light was turned off with transitiontime specified, brightness needs to be reset now.')
                 self.brightness = self._brightness
-                self._reset_bri_after_on=False
+                self._reset_bri_after_on = False
 
         self._on = value
 
@@ -385,7 +399,7 @@ class Bridge(object):
 
     
     """
-    def __init__(self, ip = None, username = None):
+    def __init__(self, ip = None, username = None, logging = 'info'):
         """ Initialization function. 
 
         Parameters:
@@ -395,6 +409,8 @@ class Bridge(object):
         username : string, optional
 
         """
+        self.set_logging(logging)
+
         if os.access(os.getenv(USER_HOME),os.W_OK):
             self.config_file_path = os.path.join(os.getenv(USER_HOME),'.python_hue')
         else:
@@ -410,6 +426,12 @@ class Bridge(object):
         #self.seconds = 10
         
         self.connect()
+    
+    def set_logging(self, level):
+        if level == 'debug':
+            logger.setLevel(logging.DEBUG)
+        elif level == 'info':
+            logger.setLevel(logging.INFO)
     
     @property
     def name(self):
@@ -432,10 +454,13 @@ class Bridge(object):
 
         result = connection.getresponse()
         connection.close()
-        return json.loads(result.read())
+        if PY3K:
+            return json.loads(str(result.read(), encoding='utf-8'))
+        else:
+            return json.loads(result.read())
     
     def register_app(self):
-        registration_request = {"username": "python_hue", "devicetype": "python_hue"}
+        registration_request = {"devicetype": "python_hue"}
         data = json.dumps(registration_request)
         response = self.request('POST', '/api', data)
         for line in response:
@@ -456,7 +481,7 @@ class Bridge(object):
         logger.info('Attempting to connect to the bridge...')
         # If the ip and username were provided at class init
         if self.ip is not None and self.username is not None:
-            logger.info('Uding ip: ' + self.ip)
+            logger.info('Using ip: ' + self.ip)
             logger.info('Using username: ' + self.username)
             return
         
@@ -465,7 +490,7 @@ class Bridge(object):
                 with open(self.config_file_path) as f:
                     config = json.loads(f.read())
                     if self.ip is None:
-                        self.ip = config.keys()[0]
+                        self.ip = list(config.keys())[0]
                         logger.info('Using ip from config: ' + self.ip)
                     else:
                         logger.info('Using ip: ' + self.ip)
@@ -482,8 +507,12 @@ class Bridge(object):
         """ Lookup a light id based on string name. Case-sensitive. """
         lights = self.get_light()
         for light_id in lights:
-            if name == lights[light_id]['name']:
-                return light_id
+            if PY3K:
+                if name == lights[light_id]['name']:
+                    return light_id
+            else:
+                if unicode(name, encoding='utf-8') == lights[light_id]['name']:
+                    return light_id                
         return False
 
     def get_light_objects(self, mode = 'list'):
@@ -527,8 +556,13 @@ class Bridge(object):
 
     def get_light(self, light_id = None, parameter = None):
         """ Gets state by light_id and parameter"""
-        if type(light_id) == str or type(light_id) == unicode:
-            light_id = self.get_light_id_by_name(light_id)
+        
+        if PY3K:
+            if type(light_id) == str:
+                light_id = self.get_light_id_by_name(light_id)
+        else:
+            if type(light_id) == str or type(light_id) == unicode:
+                light_id = self.get_light_id_by_name(light_id)
         if light_id == None:
             return self.request('GET', '/api/' + self.username + '/lights/' )
         state = self.request('GET', '/api/' + self.username + '/lights/' + str(light_id))
@@ -562,24 +596,33 @@ class Bridge(object):
             data['transitiontime'] = int(round(transitiontime)) # must be int for request format
 
         light_id_array = light_id
-        if type(light_id) == int or type(light_id) == str or type(light_id) == unicode:
-            light_id_array = [light_id]
+        if PY3K:
+            if type(light_id) == int or type(light_id) == str:
+                light_id_array = [light_id]
+        else:
+            if type(light_id) == int or type(light_id) == str or type(light_id) == unicode:
+                light_id_array = [light_id]            
         result = []
         for light in light_id_array:
             logger.debug(str(data))
             if parameter  == 'name':
                 result.append(self.request('PUT', '/api/' + self.username + '/lights/'+ str(light_id), json.dumps(data)))
             else:
-                if type(light) == str or type(light) == unicode:
-                    converted_light = self.get_light_id_by_name(light)
+                if PY3K:
+                    if type(light) == str:
+                        converted_light = self.get_light_id_by_name(light)
+                    else:
+                        converted_light = light
                 else:
-                    converted_light = light
+                    if type(light) == str or type(light) == unicode:
+                            converted_light = self.get_light_id_by_name(light)
+                    else:
+                        converted_light = light
                 result.append(self.request('PUT', '/api/' + self.username + '/lights/'+ str(converted_light) + '/state', json.dumps(data)))
-            if 'error' in result[-1][0].keys():
+            if 'error' in list(result[-1][0].keys()):
                 logger.warn("ERROR: {0} for light {1}".format(result[-1][0]['error']['description'], light) )
 
-        
-
+        logger.debug(result)
         return result
 
     ##### Groupt of lights #####
