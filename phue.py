@@ -38,24 +38,18 @@ else:
     USER_HOME = 'HOME'
 
 
-def _is_integer(somestring):
-    try:
-        int(somestring)
-        return True
-    except:
-        return False
 
 
 class Light(object):
-    """ Hue Light object 
-    
+    """ Hue Light object
+
     Light settings can be accessed or set via the properties of this object.
-    
+
     """
     def __init__(self, bridge, light_id):
         self.bridge = bridge
         self.light_id = light_id
-        
+
         self._name = None
         self._on = None
         self._brightness = None
@@ -71,7 +65,7 @@ class Light(object):
 
 
     def __repr__(self):
-        # like default python repr function, but add object name
+        # like default python repr function, but add light name
         return '<%s.%s object "%s" at %s>' % (
             self.__class__.__module__,
             self.__class__.__name__,
@@ -88,11 +82,11 @@ class Light(object):
         if self.transitiontime is not None:
             kwargs['transitiontime'] = self.transitiontime
             logger.debug("Setting with transitiontime = {0} ds = {1} s".format(self.transitiontime, float(self.transitiontime)/10))
-            
+
             if args[0] == 'on' and args[1] == False:
                 self._reset_bri_after_on = True
         return self.bridge.set_light(self.light_id, *args, **kwargs)
-       
+
     @property
     def name(self):
         '''Get or set the name of the light [string]'''
@@ -106,8 +100,8 @@ class Light(object):
         self._set('name', self._name)
 
         logger.debug("Renaming light from '{0}' to '{1}'".format(old_name, value))
-        
-        self.bridge.lights_by_name[self.name] = self 
+
+        self.bridge.lights_by_name[self.name] = self
         del self.bridge.lights_by_name[old_name]
 
     @property
@@ -119,7 +113,7 @@ class Light(object):
     @on.setter
     def on(self, value):
 
-        # Some added code here to work around known bug where 
+        # Some added code here to work around known bug where
         # turning off with transitiontime set makes it restart on brightness = 1
         # see http://www.everyhue.com/vanilla/discussion/204/bug-with-brightness-when-requesting-ontrue-transitiontime5
 
@@ -144,13 +138,13 @@ class Light(object):
         '''Get the color mode of the light [hue|xy|ct]'''
         self._colormode = self._get('colormode')
         return self._colormode
-    
+
     @property
     def brightness(self):
-        '''Get or set the brightness of the light [0-254]. 
-        
+        '''Get or set the brightness of the light [0-254].
+
         0 is not off'''
-        
+
         self._brightness = self._get('bri')
         return self._brightness
 
@@ -160,7 +154,7 @@ class Light(object):
         result = self._set('bri', self._brightness)
 
     bri = brightness # alias because I keep mis-typing this due to official hue API
-    
+
     @property
     def hue(self):
         '''Get or set the hue of the light [0-65535]'''
@@ -169,13 +163,13 @@ class Light(object):
 
     @hue.setter
     def hue(self, value):
-        self._hue = int(value) 
+        self._hue = int(value)
         self._set('hue', self._hue)
 
     @property
     def saturation(self):
         '''Get or set the saturation of the light [0-254]
-        
+
         0 = white
         254 = most saturated
         '''
@@ -189,7 +183,7 @@ class Light(object):
     @property
     def xy(self):
         '''Get or set the color coordinates of the light [ [0.0-1.0, 0.0-1.0] ]
-        
+
         This is in a color space similar to CIE 1931 (but not quite identical)
         '''
         self._xy = self._get('xy')
@@ -227,12 +221,12 @@ class Light(object):
         elif value < 2000:
             logger.warn('2000 K is min allowed color temp')
             value = 2000
- 
+
         colortemp_mireds = int(round(1e6/value))
         logger.debug("{0:d} K is {1} mireds".format(value, colortemp_mireds))
         self.colortemp = colortemp_mireds
 
- 
+
     @property
     def alert(self):
         '''Get or set the alert state of the light [select|lselect|none]'''
@@ -247,10 +241,10 @@ class Light(object):
 
     def get_rgb(self):
         """ Convert from native xyY colorspace to RGB
-        Algorithm due to AaronH: 
+        Algorithm due to AaronH:
             https://gist.github.com/AaronH/30c50aa4b161f8169c3d
-        
-        Note that this is far from a perfect conversion due to 
+
+        Note that this is far from a perfect conversion due to
         color space limitations; see discussion at
         http://www.everyhue.com/vanilla/discussion/31/xy-colourspace/p1
 
@@ -264,7 +258,7 @@ class Light(object):
 
         return tuple(int(round(255*v)) for v in (R, G, B))
     def set_rgb(self,r,g,b):
-        """ Attempt to set from RGB - 
+        """ Attempt to set from RGB -
         very imperfect color mapping
         see notes above for get_rgb
         """
@@ -283,9 +277,9 @@ class Light(object):
 
     def set_color_by_name(self, colorname):
         """ Set based on human-readable color name
-        Limited set implemented so far. 
+        Limited set implemented so far.
 
-        The color-name-to-hue mapping is of course pretty arbitrary, 
+        The color-name-to-hue mapping is of course pretty arbitrary,
         this one is just based on that from the huepl Perl library
         """
         colortable= {'white':  {'hue': 0, 'sat': 0},
@@ -317,12 +311,12 @@ class LightGroup(Light):
             name = group_id
             groups = bridge.get_group()
             for idnumber, info in groups.items():
-                if info['name'] == name: 
+                if info['name'] == name:
                     self.group_id = int(idnumber)
                     break
             else:
                 raise LookupError("Could not find a group by that name.")
-     
+
 
 
     # Wrapper functions for get/set through the bridge, adding support for
@@ -334,11 +328,11 @@ class LightGroup(Light):
 #        if self.transitiontime is not None:
 #            kwargs['transitiontime'] = self.transitiontime
 #            logger.debug("Setting with transitiontime = {0} ds = {1} s".format(self.transitiontime, float(self.transitiontime)/10))
-#            
+#
 #            if args[0] == 'on' and args[1] == False:
 #                self._reset_bri_after_on = True
         return self.bridge.set_group(self.group_id, *args, **kwargs)
-       
+
     @property
     def name(self):
         '''Get or set the name of the light group [string]'''
@@ -367,21 +361,21 @@ class LightGroup(Light):
 
 
 class AllLights(LightGroup):
-    """ All the Hue lights connected to your bridge 
-    
-    This makes use of the semi-documented feature that 
+    """ All the Hue lights connected to your bridge
+
+    This makes use of the semi-documented feature that
     "Group 0" of lights appears to be a group automatically
-    consisting of all lights.  This is not returned by 
+    consisting of all lights.  This is not returned by
     listing the groups, but is accessible if you explicitly
-    ask for group 0. 
+    ask for group 0.
     """
     def __init__(self, bridge=None):
         if bridge==None: bridge=Bridge()
         LightGroup.__init__(self, bridge,0)
-   
+
 class Bridge(object):
-    """ Interface to the Hue ZigBee bridge 
-    
+    """ Interface to the Hue ZigBee bridge
+
     You can obtain Light objects by calling the get_light_objects method:
 
         >>> b = Bridge(ip='192.168.1.100')
@@ -397,10 +391,10 @@ class Bridge(object):
         <phue.Light at 0x1046ce110>
 
 
-    
+
     """
     def __init__(self, ip = None, username = None, logging = 'info'):
-        """ Initialization function. 
+        """ Initialization function.
 
         Parameters:
         ------------
@@ -424,21 +418,28 @@ class Bridge(object):
 
         #self.minutes = 600
         #self.seconds = 10
-        
+
         self.connect()
-    
+
     def set_logging(self, level):
+        """ Change logging level for this bridge and all lights, groups, etc on it
+        See  python's logging module for an overview of logging functionality
+
+        level : string, 'info' or 'debug'
+
+        """
         if level == 'debug':
             logger.setLevel(logging.DEBUG)
         elif level == 'info':
             logger.setLevel(logging.INFO)
-    
+        logger.info("Logging level set to "+level)
+
     @property
     def name(self):
         '''Get or set the name of the bridge [string]'''
         self._name = self.request('GET', '/api/' + self.username + '/config')['name']
         return self._name
-    
+
     @name.setter
     def name(self, value):
         self._name = value
@@ -446,20 +447,27 @@ class Bridge(object):
         self.request('PUT', '/api/' + self.username + '/config', json.dumps(data))
 
     def request(self,  mode = 'GET', address = None, data = None):
+        """ Utility function for HTTP GET/PUT requests for the API"""
         connection = httplib.HTTPConnection(self.ip)
         if mode == 'GET' or mode == 'DELETE':
             connection.request(mode, address)
         if mode == 'PUT' or mode == 'POST':
             connection.request(mode, address, data)
 
+        logger.debug("{0} {1} {2}".format(mode, address, str(data)))
+
         result = connection.getresponse()
+
         connection.close()
         if PY3K:
             return json.loads(str(result.read(), encoding='utf-8'))
         else:
-            return json.loads(result.read())
-    
+            result_str = result.read()
+            logger.debug(result_str)
+            return json.loads(result_str)
+
     def register_app(self):
+        """ Register this computer with the Hue bridge hardware and save the resulting access token """
         registration_request = {"devicetype": "python_hue"}
         data = json.dumps(registration_request)
         response = self.request('POST', '/api', data)
@@ -476,15 +484,16 @@ class Bridge(object):
                         logger.info('Please press button on bridge to register application and call connect() method')
                     if line['error']['type'] == 7:
                         logger.info('Unknown username')
-    
+
     def connect(self):
+        """ Connect to the Hue bridge """
         logger.info('Attempting to connect to the bridge...')
         # If the ip and username were provided at class init
         if self.ip is not None and self.username is not None:
             logger.info('Using ip: ' + self.ip)
             logger.info('Using username: ' + self.username)
             return
-        
+
         if self.ip == None or self.username == None:
             try:
                 with open(self.config_file_path) as f:
@@ -512,12 +521,12 @@ class Bridge(object):
                     return light_id
             else:
                 if unicode(name, encoding='utf-8') == lights[light_id]['name']:
-                    return light_id                
+                    return light_id
         return False
 
     def get_light_objects(self, mode = 'list'):
         """Returns a collection containing the lights, either by name or id (use 'id' or 'name' as the mode)
-        The returned collection can be either a list (default), or a dict. 
+        The returned collection can be either a list (default), or a dict.
         Set mode='id' for a dict by light ID, or mode='name' for a dict by light name.   """
         if self.lights_by_id == {}:
             lights = self.request('GET', '/api/' + self.username + '/lights/')
@@ -530,9 +539,9 @@ class Bridge(object):
             return self.lights_by_name
         if mode == 'list':
             return [ self.lights_by_id[x] for x in range(1, len(self.lights_by_id) + 1) ]
-  
+
     def __getitem__(self, key):
-        """ Lights are accessibly by indexing the bridge either with 
+        """ Lights are accessibly by indexing the bridge either with
         an integer index or string name. """
         if self.lights_by_id == {}:
             self.get_light_objects()
@@ -556,7 +565,7 @@ class Bridge(object):
 
     def get_light(self, light_id = None, parameter = None):
         """ Gets state by light_id and parameter"""
-        
+
         if PY3K:
             if type(light_id) == str:
                 light_id = self.get_light_id_by_name(light_id)
@@ -575,7 +584,7 @@ class Bridge(object):
 
 
     def set_light(self, light_id, parameter, value = None, transitiontime=None):
-        """ Adjust properties of one or more lights. 
+        """ Adjust properties of one or more lights.
 
         light_id can be a single lamp or an array of lamps
         parameters: 'on' : True|False , 'bri' : 0-254, 'sat' : 0-254, 'ct': 154-500
@@ -601,7 +610,7 @@ class Bridge(object):
                 light_id_array = [light_id]
         else:
             if type(light_id) == int or type(light_id) == str or type(light_id) == unicode:
-                light_id_array = [light_id]            
+                light_id_array = [light_id]
         result = []
         for light in light_id_array:
             logger.debug(str(data))
@@ -630,8 +639,8 @@ class Bridge(object):
     def groups(self):
         """ Access groups as a list """
         return [LightGroup(self, groupid) for groupid in  self.get_group().keys()]
-        
-    
+
+
     def get_group(self, group_id = None, parameter = None):
         """ Get information for a group """
         if group_id == None:
@@ -644,8 +653,8 @@ class Bridge(object):
             return self.request('GET', '/api/' + self.username + '/groups/'+  str(group_id))['action'][parameter]
 
     def set_group(self, group_id, parameter, value = None):
-        """ Change light settings for a group 
-        
+        """ Change light settings for a group
+
         Parameters
         -----------
 
@@ -685,7 +694,7 @@ class Bridge(object):
     def groups(self):
         """ Access groups as a list """
         return [LightGroup(self, groupid) for groupid in  self.get_group().keys()]
- 
+
     def get_schedule(self, schedule_id = None, parameter = None):
         if schedule_id == None:
             return self.request('GET', '/api/' + self.username + '/schedules')
@@ -694,12 +703,12 @@ class Bridge(object):
 
     def create_schedule(self, name, time, light_id, data, description = ' '):
         schedule = {
-                    'name': name, 
-                    'time': time, 
-                    'description': description, 
+                    'name': name,
+                    'time': time,
+                    'description': description,
                     'command':
                         {
-                        'method': 'PUT', 
+                        'method': 'PUT',
                         'address': '/api/' + self.username + '/lights/' + str(light_id) + '/state',
                         'body': data
                         }
@@ -708,12 +717,12 @@ class Bridge(object):
 
     def create_group_schedule(self, name, time, group_id, data, description = ' '):
         schedule = {
-                    'name': name, 
-                    'time': time, 
-                    'description': description, 
+                    'name': name,
+                    'time': time,
+                    'description': description,
                     'command':
                         {
-                        'method': 'PUT', 
+                        'method': 'PUT',
                         'address': '/api/' + self.username + '/groups/' + str(group_id) + '/action',
                         'body': data
                         }
@@ -722,20 +731,6 @@ class Bridge(object):
 
     def delete_schedule(self, schedule_id):
         return self.request('DELETE', '/api/' + self.username + '/schedules/' + str(schedule_id))
-
-
-def state(light):
-    return "hue={0:d}, sat={1:d}, xy={2}, ct={3:d}".format(light.hue, light.saturation, light.xy, light.colortemp)
-
-
-def shutdown(delay=3600):
-    logger.info("Will shutdown all lights in {0} s".format(delay))
-
-    import time
-    time.sleep(delay)
-    b = Bridge()
-    al = AllLights(b)
-    al.on = False
 
 if __name__ == '__main__':
     import argparse
